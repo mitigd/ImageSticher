@@ -1,5 +1,7 @@
 # ImageStitcher
 
+![ImageSticher](https://github.com/user-attachments/assets/e8051d8b-f8ca-4d75-ab21-3e330e1d1a85)
+
 ## Description
 
 ImageStitcher is a user-friendly desktop application for Windows built with C# and WPF on the .NET 8 platform. It allows you to easily combine two images, either side-by-side or one on top of the other, with several customization options.
