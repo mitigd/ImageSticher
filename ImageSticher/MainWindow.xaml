@@ -5,49 +5,113 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ImageStitcher"
         mc:Ignorable="d"
-        Title="Simple Image Stitcher" Height="450" Width="800"
+        Title="Image Stitcher" Height="550" Width="900"
+        MinWidth="800" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         Background="#f0f0f0">
-    <Grid Margin="15">
+    <Window.Resources>
+        <!-- Style for the placeholder text inside the image drop zones -->
+        <Style TargetType="TextBlock" x:Key="PlaceholderTextStyle">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#aaa"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <!-- Show the placeholder text only when the corresponding Image's Source is null -->
+                <DataTrigger Binding="{Binding Source, ElementName=Image1Preview}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="TextBlock" x:Key="PlaceholderTextStyle2" BasedOn="{StaticResource PlaceholderTextStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Source, ElementName=Image2Preview}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="MainGrid" Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Side-by-Side Image Stitcher" FontSize="24" FontWeight="Bold" Foreground="#333" HorizontalAlignment="Center" Margin="0,0,0,20"/>
-
-        <!-- Area for Image Previews -->
+        <!-- Area for Image Previews and Swap Button -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Image 1 Preview -->
-            <Border Grid.Column="0" BorderBrush="#ccc" BorderThickness="1" Margin="5" CornerRadius="5" Background="White">
-                <Image x:Name="Image1Preview" Stretch="Uniform" />
+            <!-- Image 1 Preview with Drag-and-Drop enabled -->
+            <Border x:Name="Border1" Grid.Column="0" BorderBrush="#ccc" BorderThickness="2" Margin="5" CornerRadius="5" Background="White"
+                    AllowDrop="True" 
+                    DragEnter="Image_DragEnter"
+                    DragLeave="Image_DragLeave"
+                    Drop="Image1_Drop">
+                <Grid>
+                    <Image x:Name="Image1Preview" Stretch="Uniform" />
+                    <TextBlock Text="Select or Drop Image 1" Style="{StaticResource PlaceholderTextStyle}" />
+                </Grid>
             </Border>
 
-            <!-- Image 2 Preview -->
-            <Border Grid.Column="1" BorderBrush="#ccc" BorderThickness="1" Margin="5" CornerRadius="5" Background="White">
-                <Image x:Name="Image2Preview" Stretch="Uniform" />
+            <!-- Swap Button -->
+            <Button x:Name="SwapButton" Grid.Column="1" VerticalAlignment="Center" Margin="5" Click="SwapButton_Click" ToolTip="Swap Images" Width="40" Height="40">
+                <TextBlock Text="↔" FontSize="20" FontWeight="Bold"/>
+            </Button>
+
+            <!-- Image 2 Preview with Drag-and-Drop enabled -->
+            <Border x:Name="Border2" Grid.Column="2" BorderBrush="#ccc" BorderThickness="2" Margin="5" CornerRadius="5" Background="White"
+                    AllowDrop="True"
+                    DragEnter="Image_DragEnter"
+                    DragLeave="Image_DragLeave"
+                    Drop="Image2_Drop">
+                <Grid>
+                    <Image x:Name="Image2Preview" Stretch="Uniform" />
+                    <TextBlock Text="Select or Drop Image 2" Style="{StaticResource PlaceholderTextStyle2}" />
+                </Grid>
             </Border>
         </Grid>
 
-        <!-- Buttons for Selecting and Stitching -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,10">
-            <Button x:Name="SelectImage1Button" Content="Select First Image" Width="150" Margin="5" Padding="10,5" Click="SelectImage1Button_Click" Background="#007ACC" Foreground="White" BorderThickness="0"/>
-            <Button x:Name="SelectImage2Button" Content="Select Second Image" Width="150" Margin="5" Padding="10,5" Click="SelectImage2Button_Click" Background="#007ACC" Foreground="White" BorderThickness="0"/>
-            <Button x:Name="StitchImagesButton" Content="Stitch Images" Width="150" Margin="20,5,5,5" Padding="10,5" Click="StitchImagesButton_Click" FontWeight="Bold" Background="#28A745" Foreground="White" BorderThickness="0"/>
-        </StackPanel>
+        <!-- Options and Action Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Vertical" HorizontalAlignment="Center" Margin="0,20,0,0">
+            <!-- Stitching Options -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <GroupBox Header="Stitch Direction" Margin="5" FontWeight="SemiBold">
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <RadioButton x:Name="HorizontalRadio" Content="Horizontal" IsChecked="True" Margin="5,0"/>
+                        <RadioButton x:Name="VerticalRadio" Content="Vertical" Margin="5,0"/>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox Header="Image Alignment" Margin="5" FontWeight="SemiBold">
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <RadioButton x:Name="AlignTopLeftRadio" Content="Top / Left" IsChecked="True" Margin="5,0"/>
+                        <RadioButton x:Name="AlignCenterRadio" Content="Center" Margin="5,0"/>
+                        <RadioButton x:Name="AlignBottomRightRadio" Content="Bottom / Right" Margin="5,0"/>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
 
-        <!-- Status Bar -->
-        <StatusBar Grid.Row="3" VerticalAlignment="Bottom">
-            <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="Please select two images."/>
-            </StatusBarItem>
-        </StatusBar>
+            <!-- Main Action Buttons -->
+            <StackPanel x:Name="ActionPanel" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,10">
+                <Button x:Name="SelectImage1Button" Content="Select Image 1" Width="130" Margin="5" Padding="10,5" Click="SelectImage1Button_Click" Background="#007ACC" Foreground="White" BorderThickness="0"/>
+                <Button x:Name="SelectImage2Button" Content="Select Image 2" Width="130" Margin="5" Padding="10,5" Click="SelectImage2Button_Click" Background="#007ACC" Foreground="White" BorderThickness="0"/>
+                <Button x:Name="ClearAllButton" Content="Clear All" Width="100" Margin="5" Padding="10,5" Click="ClearAllButton_Click" Background="#DC3545" Foreground="White" BorderThickness="0"/>
+                <Button x:Name="StitchImagesButton" Content="Stitch &amp; Save" Width="150" Margin="20,5,5,5" Padding="10,5" Click="StitchImagesButton_Click" FontWeight="Bold" Background="#28A745" Foreground="White" BorderThickness="0"/>
+            </StackPanel>
+
+            <!-- Status Bar -->
+            <StatusBar VerticalAlignment="Bottom" Margin="0,10,0,0">
+                <StatusBarItem>
+                    <TextBlock x:Name="StatusText" Text="Please select two images."/>
+                </StatusBarItem>
+            </StatusBar>
+        </StackPanel>
     </Grid>
 </Window>

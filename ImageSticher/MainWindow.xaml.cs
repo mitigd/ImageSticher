@@ -1,7 +1,10 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -9,7 +12,6 @@ namespace ImageStitcher
 {
     public partial class MainWindow : Window
     {
-        // Store the paths of the selected images
         private string? _image1Path;
         private string? _image2Path;
 
@@ -18,102 +20,56 @@ namespace ImageStitcher
             InitializeComponent();
         }
 
+        #region Image Loading and Selection
+
         private void SelectImage1Button_Click(object sender, RoutedEventArgs e)
         {
-            _image1Path = SelectImageFile();
-            if (_image1Path != null)
+            string? selectedPath = SelectImageFile();
+            if (selectedPath != null)
             {
-                // Display a preview of the selected image
-                Image1Preview.Source = new BitmapImage(new Uri(_image1Path));
-                StatusText.Text = "First image selected. Please select the second image.";
+                LoadImage(selectedPath, 1);
             }
         }
 
         private void SelectImage2Button_Click(object sender, RoutedEventArgs e)
         {
-            _image2Path = SelectImageFile();
-            if (_image2Path != null)
+            string? selectedPath = SelectImageFile();
+            if (selectedPath != null)
             {
-                // Display a preview of the selected image
-                Image2Preview.Source = new BitmapImage(new Uri(_image2Path));
-                StatusText.Text = "Second image selected. Ready to stitch.";
+                LoadImage(selectedPath, 2);
             }
         }
 
-        private void StitchImagesButton_Click(object sender, RoutedEventArgs e)
+        private void LoadImage(string filePath, int slot)
         {
-            // Ensure both images have been selected before proceeding
-            if (Image1Preview.Source == null || Image2Preview.Source == null || string.IsNullOrEmpty(_image1Path))
-            {
-                MessageBox.Show("Please select two images before stitching.", "Missing Images", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             try
             {
-                StatusText.Text = "Stitching images...";
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(filePath);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad; 
+                bitmap.EndInit();
+                bitmap.Freeze(); 
 
-                // Get the BitmapSource objects from the image controls
-                BitmapSource bmp1 = (BitmapSource)Image1Preview.Source;
-                BitmapSource bmp2 = (BitmapSource)Image2Preview.Source;
-
-                // Calculate the dimensions of the new, combined image
-                int outputWidth = bmp1.PixelWidth + bmp2.PixelWidth;
-                int outputHeight = Math.Max(bmp1.PixelHeight, bmp2.PixelHeight);
-
-                // A DrawingVisual is a lightweight drawing class used to render shapes, images, or text.
-                var drawingVisual = new DrawingVisual();
-                using (DrawingContext drawingContext = drawingVisual.RenderOpen())
+                if (slot == 1)
                 {
-                    // Draw a white background rectangle to fill any space if images have different heights
-                    drawingContext.DrawRectangle(Brushes.White, null, new Rect(0, 0, outputWidth, outputHeight));
-
-                    // Draw the first image on the left
-                    drawingContext.DrawImage(bmp1, new Rect(0, 0, bmp1.PixelWidth, bmp1.PixelHeight));
-
-                    // Draw the second image to the right of the first one
-                    drawingContext.DrawImage(bmp2, new Rect(bmp1.PixelWidth, 0, bmp2.PixelWidth, bmp2.PixelHeight));
+                    _image1Path = filePath;
+                    Image1Preview.Source = bitmap;
+                    StatusText.Text = "First image loaded. Please select or drop the second image.";
                 }
-
-                // A RenderTargetBitmap can render a visual object (like our DrawingVisual) into a bitmap.
-                var stitchedBitmap = new RenderTargetBitmap(outputWidth, outputHeight, 96, 96, PixelFormats.Pbgra32);
-                stitchedBitmap.Render(drawingVisual);
-
-                // Use a PngBitmapEncoder to save the file
-                BitmapEncoder encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(stitchedBitmap));
-
-                // Determine the output path
-                string? directory = Path.GetDirectoryName(_image1Path);
-                if (directory == null)
+                else if (slot == 2)
                 {
-                    MessageBox.Show("Could not determine the directory of the first image.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
+                    _image2Path = filePath;
+                    Image2Preview.Source = bitmap;
+                    StatusText.Text = "Second image loaded. Ready to stitch.";
                 }
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string outputFileName = $"stitched_{timestamp}.png";
-                string outputPath = Path.Combine(directory, outputFileName);
-
-                // Save the stitched image to a file
-                using (var fileStream = new FileStream(outputPath, FileMode.Create))
-                {
-                    encoder.Save(fileStream);
-                }
-
-                StatusText.Text = $"Successfully saved to: {outputPath}";
-                MessageBox.Show($"Image saved successfully!\n\nPath: {outputPath}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                StatusText.Text = "An error occurred during stitching.";
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Could not load the image file.\n\nError: {ex.Message}", "Invalid Image", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        /// <summary>
-        /// Opens a file dialog to allow the user to select an image file.
-        /// </summary>
-        /// <returns>The file path of the selected image, or null if canceled.</returns>
         private string? SelectImageFile()
         {
             OpenFileDialog openFileDialog = new OpenFileDialog
@@ -128,5 +84,187 @@ namespace ImageStitcher
             }
             return null;
         }
+
+        #endregion
+
+        #region UI Interaction Handlers
+
+        private void ClearAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            Image1Preview.Source = null;
+            Image2Preview.Source = null;
+            _image1Path = null;
+            _image2Path = null;
+            StatusText.Text = "Cleared. Please select two images.";
+        }
+
+        private void SwapButton_Click(object sender, RoutedEventArgs e)
+        {
+            (_image1Path, _image2Path) = (_image2Path, _image1Path);
+            (Image1Preview.Source, Image2Preview.Source) = (Image2Preview.Source, Image1Preview.Source);
+
+            StatusText.Text = "Images swapped.";
+        }
+
+        #endregion
+
+        #region Drag and Drop Handlers
+
+        private void Image_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effects = DragDropEffects.Copy;
+                if (sender is Border border)
+                {
+                    border.BorderBrush = Brushes.DodgerBlue;
+                }
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        private void Image_DragLeave(object sender, DragEventArgs e)
+        {
+            if (sender is Border border)
+            {
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(0xcc, 0xcc, 0xcc)); 
+            }
+        }
+
+        private void Image1_Drop(object sender, DragEventArgs e)
+        {
+            Image_DragLeave(sender, e); 
+            if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+            {
+                LoadImage(files[0], 1);
+            }
+        }
+
+        private void Image2_Drop(object sender, DragEventArgs e)
+        {
+            Image_DragLeave(sender, e);
+            if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+            {
+                LoadImage(files[0], 2);
+            }
+        }
+
+        #endregion
+
+        #region Image Stitching Logic
+
+        private async void StitchImagesButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (Image1Preview.Source == null || Image2Preview.Source == null)
+            {
+                MessageBox.Show("Please select two images before stitching.", "Missing Images", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            SaveFileDialog saveFileDialog = new SaveFileDialog
+            {
+                Filter = "PNG Image|*.png|JPEG Image|*.jpg|Bitmap Image|*.bmp",
+                Title = "Save Stitched Image",
+                FileName = $"stitched_{DateTime.Now:yyyyMMdd_HHmmss}"
+            };
+
+            if (saveFileDialog.ShowDialog() != true) return;
+
+            bool isHorizontal = HorizontalRadio.IsChecked == true;
+            bool isCenterAlign = AlignCenterRadio.IsChecked == true;
+            bool isBottomRightAlign = AlignBottomRightRadio.IsChecked == true;
+            BitmapSource bmp1 = (BitmapSource)Image1Preview.Source;
+            BitmapSource bmp2 = (BitmapSource)Image2Preview.Source;
+            string fileName = saveFileDialog.FileName;
+            int filterIndex = saveFileDialog.FilterIndex;
+
+            ActionPanel.IsEnabled = false;
+            StatusText.Text = "Working... please wait.";
+
+            try
+            {
+                await Task.Run(() =>
+                {
+                    var drawingVisual = new DrawingVisual();
+                    using (DrawingContext drawingContext = drawingVisual.RenderOpen())
+                    {
+                        int outputWidth = isHorizontal ? bmp1.PixelWidth + bmp2.PixelWidth : Math.Max(bmp1.PixelWidth, bmp2.PixelWidth);
+                        int outputHeight = isHorizontal ? Math.Max(bmp1.PixelHeight, bmp2.PixelHeight) : bmp1.PixelHeight + bmp2.PixelHeight;
+
+                        drawingContext.DrawRectangle(Brushes.White, null, new Rect(0, 0, outputWidth, outputHeight));
+
+                        Rect rect1, rect2;
+                        if (isHorizontal)
+                        {
+                            double y1 = CalculateAlignment(outputHeight, bmp1.PixelHeight, isCenterAlign, isBottomRightAlign);
+                            double y2 = CalculateAlignment(outputHeight, bmp2.PixelHeight, isCenterAlign, isBottomRightAlign);
+                            rect1 = new Rect(0, y1, bmp1.PixelWidth, bmp1.PixelHeight);
+                            rect2 = new Rect(bmp1.PixelWidth, y2, bmp2.PixelWidth, bmp2.PixelHeight);
+                        }
+                        else 
+                        {
+                            double x1 = CalculateAlignment(outputWidth, bmp1.PixelWidth, isCenterAlign, isBottomRightAlign);
+                            double x2 = CalculateAlignment(outputWidth, bmp2.PixelWidth, isCenterAlign, isBottomRightAlign);
+                            rect1 = new Rect(x1, 0, bmp1.PixelWidth, bmp1.PixelHeight);
+                            rect2 = new Rect(x2, bmp1.PixelHeight, bmp2.PixelWidth, bmp2.PixelHeight);
+                        }
+
+                        drawingContext.DrawImage(bmp1, rect1);
+                        drawingContext.DrawImage(bmp2, rect2);
+                    }
+
+                    int finalWidth = isHorizontal ? bmp1.PixelWidth + bmp2.PixelWidth : Math.Max(bmp1.PixelWidth, bmp2.PixelWidth);
+                    int finalHeight = isHorizontal ? Math.Max(bmp1.PixelHeight, bmp2.PixelHeight) : bmp1.PixelHeight + bmp2.PixelHeight;
+                    var stitchedBitmap = new RenderTargetBitmap(finalWidth, finalHeight, 96, 96, PixelFormats.Pbgra32);
+                    stitchedBitmap.Render(drawingVisual);
+                    stitchedBitmap.Freeze();
+
+                    BitmapEncoder encoder = filterIndex switch
+                    {
+                        2 => new JpegBitmapEncoder { QualityLevel = 90 },
+                        3 => new BmpBitmapEncoder(),
+                        _ => new PngBitmapEncoder(),
+                    };
+
+                    encoder.Frames.Add(BitmapFrame.Create(stitchedBitmap));
+
+                    using (var fileStream = new FileStream(fileName, FileMode.Create))
+                    {
+                        encoder.Save(fileStream);
+                    }
+                });
+
+                StatusText.Text = $"Successfully saved to: {Path.GetFileName(fileName)}";
+                MessageBox.Show($"Image saved successfully!\n\nPath: {fileName}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "An error occurred during stitching.";
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                ActionPanel.IsEnabled = true;
+            }
+        }
+
+        private double CalculateAlignment(double containerSize, double elementSize, bool isCenter, bool isBottomRight)
+        {
+            if (isCenter)
+            {
+                return (containerSize - elementSize) / 2;
+            }
+            if (isBottomRight)
+            {
+                return containerSize - elementSize;
+            }
+            return 0;
+        }
+
+        #endregion
     }
 }
